@@ -1,0 +1,23 @@
+name: IndexedDB regression tests
+on:
+  push:
+    branches: [test-v19.3.0, integration/v19.3.0-indexeddb]
+  pull_request:
+    branches: [test-v19.3.0]
+permissions:
+  contents: read
+jobs:
+  storage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
