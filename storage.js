@@ -39,11 +39,12 @@
     const db=await open(name);let invalid=false;
     db.onversionchange=()=>{invalid=true;db.close();};
     async function read(){const tx=db.transaction(['records','photos','metadata'],'readonly'),end=done(tx);const [encoded,photoKeys,photoValues,head]=await Promise.all([request(tx.objectStore('records').get('values')),request(tx.objectStore('photos').getAllKeys()),request(tx.objectStore('photos').getAll()),request(tx.objectStore('metadata').get('head'))]);await end;return {values:encoded?await unpack(encoded,new Map(photoKeys.map((k,i)=>[k,photoValues[i]]))):{},head};}
-    let loaded=await read(),revision=loaded.head?.revision||0,cache=loaded.values,committed=clone(cache),tail=Promise.resolve(),busy=0;
+    let loaded=await read(),revision=loaded.head?.revision||0,cache=loaded.values,committed=clone(cache),tail=Promise.resolve(),busy=0,epoch=0;
     const api={getItem:k=>Object.hasOwn(cache,k)?cache[k]:null,setItem(k,v){if(!KEYS.includes(k))throw Error('Unknown storage key');cache[k]=String(v);},removeItem(k){delete cache[k];},get busy(){return busy>0;},idle:()=>tail,close:()=>db.close(),
       async flush(){
-        const values=clone(cache);busy++;
+        const values=clone(cache),expectedEpoch=epoch;busy++;
         const task=tail.then(async()=>{
+          if(expectedEpoch!==epoch)throw Error('A previous save failed. Review the entry and retry saving.');
           if(invalid)throw Error('Storage changed in another tab. Reload before saving.');
           if(JSON.stringify(values)===JSON.stringify(committed))return;
           validate(values);const packed=await pack(values);
@@ -62,10 +63,10 @@
           revision++;committed=values;
         });
         tail=task.catch(()=>{});
-        try{await task;}catch(e){cache=clone(committed);throw e;}finally{busy--;}
+        try{await task;}catch(e){if(expectedEpoch===epoch){cache=clone(committed);epoch++;}throw e;}finally{busy--;}
       }
     };
-    if(!loaded.head){
+    try{if(!loaded.head){
       const candidate={};for(const k of KEYS){const raw=legacy.getItem(k);if(raw!==null)candidate[k]=raw;}
       if(Object.keys(candidate).length&&await allowLegacy(candidate)){
         // Recover an interrupted legacy pair in memory only. Never edit legacy keys.
@@ -74,7 +75,7 @@
       }else cache={[PREFIX]:'[]'};
       await api.flush();loaded=await read();
       if(JSON.stringify(loaded.values)!==JSON.stringify(cache))throw Error('Migration verification failed. Legacy data remains available.');
-    }
+    }}catch(e){db.close();throw e;}
     // Existing corrupt records remain available to the application's raw export
     // and replace-from-backup recovery UI. Never silently start an empty database.
     return api;

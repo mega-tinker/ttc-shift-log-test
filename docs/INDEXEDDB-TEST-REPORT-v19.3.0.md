@@ -18,7 +18,7 @@ The new service worker only handles its own scope and reads its own versioned ca
 
 ## Verification
 
-`npm test` runs seven migration/integration groups plus the existing camera, holiday, history, Spareboard editing and Spareboard workflow suites, adapted for asynchronous storage. All fixtures are synthetic; no private backup is required.
+`npm test` runs eight migration/integration groups plus the existing camera, holiday, history, Spareboard editing and Spareboard workflow suites, adapted for asynchronous storage. All fixtures are synthetic; no private backup is required.
 
 Covered: fresh installation; consent/decline of shared legacy copying; exact raw-value and photo preservation; restart without repeating migration; a 6 MiB logical value; malformed migration; interrupted legacy journal; aborted migration and retry; simulated quota abort; stale-tab conflict; UI save/edit; 13-minute paid 2x OT; holiday credit and holiday work categories; report-only Spareboard days; multiple pieces; waiting; delete scopes/undo/recovery; JSON v1/v2/v3 imports, merges and replacements; filters/history; drafts; failed saves retaining the entry; and rollback-readable records. The legacy rollback test renders exported work with the prior app version.
 
@@ -34,4 +34,4 @@ To roll back the test deployment, publish the previous test commit `31550a1af37a
 
 ## Review
 
-Manual diff review checked every storage mutation and asynchronous save call, untouched payroll logic (`core.js`), namespace boundaries, service-worker version consistency, atomic abort behavior, JSON compatibility and stale-tab protection. The regression and real-browser checks caught and corrected unawaited metadata writes and the Save/draft click race. External CodeRabbit approval must not be claimed unless an actual review is returned on the test PR.
+Manual diff review checked every storage mutation and asynchronous save call, untouched payroll logic (`core.js`), namespace boundaries, service-worker version consistency, atomic abort behavior, JSON compatibility and stale-tab protection. The regression and real-browser checks caught and corrected unawaited metadata writes the Save/draft click race, and invalidation of queued drafts after a failed record commit. External CodeRabbit approval must not be claimed unless an actual review is returned on the test PR.

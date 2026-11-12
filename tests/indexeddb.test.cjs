@@ -35,6 +35,13 @@ test('interrupted migration retries atomically without losing legacy or duplicat
  try{await assert.rejects(e.create({allowLegacy:()=>true}),/Interrupted migration/);}finally{proto.put=put;}
  const a=await e.create({allowLegacy:()=>true});assert.equal(a.getItem(KEY),e.values.get(KEY));assert.equal(a.getItem(S.KEY),e.values.get(S.KEY));a.close();
 });
+test('a queued draft cannot resurrect a failed record save',async()=>{
+ const e=environment(),a=await e.create(),proto=require('fake-indexeddb').IDBObjectStore.prototype,put=proto.put;let fail=true;
+ proto.put=function(...args){if(fail){fail=false;throw Error('Quota');}return put.apply(this,args);};
+ a.setItem(KEY,JSON.stringify([record]));const first=a.flush();a.setItem(KEY+'DraftV18','{}');const queued=a.flush();
+ try{const results=await Promise.allSettled([first,queued]);assert.ok(results.every(r=>r.status==='rejected'));}finally{proto.put=put;}
+ assert.equal(a.getItem(KEY),'[]');a.close();const b=await e.create();assert.equal(b.getItem(KEY),'[]');b.close();
+});
 async function ui(){
  const dom=new JSDOM(read('index.html'),{url:'https://example.test/ttc-shift-log-test/',runScripts:'outside-only'}),w=dom.window;
  await new Promise(r=>w.document.addEventListener('DOMContentLoaded',r,{once:true}));
